@@ -8,7 +8,7 @@
           <v-icon color="primary" size="26" class="animate-glow">mdi-printer-3d-nozzle</v-icon>
           <div class="logo-ring"></div>
         </div>
-        <span class="logo-text">PAPOIS <span class="text-primary">EN 3D</span></span>
+        <span class="logo-text">PRINT<span class="text-primary">FLOW</span></span>
       </div>
 
       <v-spacer></v-spacer>
@@ -585,7 +585,7 @@ let particleAnimId: number | null = null
 let glitchInterval: ReturnType<typeof setInterval> | null = null
 
 // Estado del efecto glitch
-const glitchText = ref('PAPOIS EN 3D')
+const glitchText = ref('PRINTFLOW')
 
 // Computados de Sesión
 const isLoggedIn = computed(() => authStore.profile !== null)
@@ -673,7 +673,7 @@ const onAuthSuccess = () => {
 // ==========================================
 
 const glitchChars = '!<>-_\\/[]{}—=+*^?#ABCXZ0123456789'
-const originalTitle = 'PAPOIS EN 3D'
+const originalTitle = 'PRINTFLOW'
 
 const startGlitchEffect = () => {
   glitchInterval = setInterval(() => {
