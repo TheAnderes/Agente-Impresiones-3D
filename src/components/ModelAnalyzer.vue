@@ -11,7 +11,6 @@
     <v-divider class="mx-4 border-opacity-25"></v-divider>
 
     <div class="card-scroll-content px-4 py-3 flex-grow-1">
-      <!-- 1. ZONA DE UPLOAD -->
       <div
         class="upload-zone d-flex flex-column align-center justify-center py-6 px-4 mb-4"
         :class="{ 'upload-dragover': dragover, 'has-file': fileName }"
@@ -43,7 +42,6 @@
           {{ fileName ? 'Haz clic para cambiar de archivo' : 'O haz clic para explorar en tu equipo' }}
         </span>
 
-        <!-- Cargando animado -->
         <v-overlay
           v-model="loading"
           contained
@@ -64,11 +62,9 @@
         </v-overlay>
       </div>
 
-      <!-- 2. AJUSTES DE REBANADO (SLICER) -->
       <div v-if="volume > 0">
         <h4 class="text-subtitle-2 font-weight-bold text-primary mb-3">⚙️ Ajustes del Rebanador (Slicer)</h4>
 
-        <!-- Selector de Material -->
         <v-select
           v-model="selectedMaterial"
           :items="materials"
@@ -79,7 +75,6 @@
           class="mb-3"
         ></v-select>
 
-        <!-- Slider de Relleno (Infill) -->
         <div class="mb-3">
           <div class="d-flex justify-space-between text-body-2 mb-1">
             <span>Relleno (Infill):</span>
@@ -87,7 +82,7 @@
           </div>
           <v-slider
             v-model="infill"
-            min="10"
+            min="5"
             max="100"
             step="5"
             color="primary"
@@ -97,7 +92,6 @@
           ></v-slider>
         </div>
 
-        <!-- Fila: Altura de capa y Soportes -->
         <v-row class="ma-0 mb-3" dense>
           <v-col cols="6" class="pa-0 pe-2">
             <v-select
@@ -126,11 +120,9 @@
 
         <v-divider class="my-3 border-opacity-25"></v-divider>
 
-        <!-- 3. ESTIMACIÓN DE MATERIALES (KPIs) -->
         <h4 class="text-subtitle-2 font-weight-bold text-primary mb-3">📊 Métricas de Impresión Estimadas</h4>
 
         <v-row dense class="mb-3">
-          <!-- Tarjeta Peso -->
           <v-col cols="6" class="pa-1">
             <div class="stat-box d-flex align-center">
               <v-icon color="primary" class="me-2" size="28">mdi-weight-gram</v-icon>
@@ -140,7 +132,6 @@
               </div>
             </div>
           </v-col>
-          <!-- Tarjeta Longitud -->
           <v-col cols="6" class="pa-1">
             <div class="stat-box d-flex align-center">
               <v-icon color="primary" class="me-2" size="28">mdi-ruler</v-icon>
@@ -150,17 +141,15 @@
               </div>
             </div>
           </v-col>
-          <!-- Tarjeta Costo -->
           <v-col cols="6" class="pa-1">
             <div class="stat-box d-flex align-center">
-              <v-icon color="success" class="me-2" size="28">mdi-currency-usd</v-icon>
+              <v-icon color="success" class="me-2" size="28">mdi-cash</v-icon>
               <div>
                 <div class="text-caption text-grey-darken-1">Costo Estimado</div>
-                <div class="text-subtitle-1 font-weight-bold text-success">${{ estCost.toFixed(2) }} USD</div>
+                <div class="text-subtitle-1 font-weight-bold text-success">{{ estCost.toFixed(2) }} Bs.</div>
               </div>
             </div>
           </v-col>
-          <!-- Tarjeta Tiempo -->
           <v-col cols="6" class="pa-1">
             <div class="stat-box d-flex align-center">
               <v-icon color="warning" class="me-2" size="28">mdi-clock-outline</v-icon>
@@ -174,7 +163,6 @@
       </div>
     </div>
 
-    <!-- 4. BOTÓN ACCIÓN DE IMPRESIÓN -->
     <v-card-actions v-if="volume > 0" class="px-4 pb-4 pt-0">
       <v-btn
         color="primary"
@@ -204,6 +192,10 @@ const emit = defineEmits<{
   (e: 'print', data: ModelData): void
 }>()
 
+// CONFIGURACIÓN GLOBAL DE COSTOS (Hardcoded temporalmente, lista para migración a base de datos)
+const PRECIO_FILAMENTO_POR_GRAMO_BOB = 1.0  // 1 Bs / gramo de filamento
+const CONFIG_WALL_THICKNESS_MM = 1.2        // Espesor estándar de paredes (3 perímetros de 0.4mm)
+
 // Estado
 const fileInput = ref<HTMLInputElement | null>(null)
 const dragover = ref(false)
@@ -228,72 +220,79 @@ const layerHeights = [
   { title: 'Borrador / Rápido (0.28 mm)', value: 0.28 }
 ]
 
-// Precios de referencia por Kilogramo para el filamento (USD)
-const MATERIAL_PRICES: Record<string, number> = {
-  PLA: 22,
-  ABS: 26,
-  PETG: 25,
-  TPU: 38
-}
-
 // ==========================================
-// FÓRMULAS DE ESTIMACIÓN INGENIERIL
+// FÓRMULAS DE ESTIMACIÓN INGENIERIL (SLICER APPROXIMATION)
 // ==========================================
 
-// 1. Peso estimado en gramos
+// 1. Peso estimado en gramos basado en Slicer Approximation real
 const estWeight = computed(() => {
-  if (volume.value === 0) return 0
+  if (volume.value === 0 || !boundingBox.value) return 0
 
   const specs = MATERIAL_SPECS[selectedMaterial.value] || MATERIAL_SPECS.PLA
-  const density = specs.density // g/cm3
+  const density = specs.density // g/cm³
 
-  // Estimación del volumen real impreso considerando perímetros e infill
-  // Asumimos que un modelo tiene capas sólidas y paredes (alrededor del 22% del volumen total)
-  // y el resto es relleno hueco
-  const shellFraction = 0.22
-  const infillFraction = infill.value / 100
-  const printedVolumeFraction = shellFraction + (1 - shellFraction) * infillFraction
+  // Convertir volumen total bruto del STL de cm³ a mm³
+  const volumenTotalMm3 = volume.value * 1000
 
-  let finalVolume = volume.value * printedVolumeFraction
+  // Aproximación del Área Superficial (mm²) usando el Bounding Box (Caja contenedora)
+  const dx = boundingBox.value.size.x
+  const dy = boundingBox.value.size.y
+  const dz = boundingBox.value.size.z
+  const areaSuperficialMm2 = 2 * (dx * dy + dy * dz + dx * dz)
 
-  // Si tiene soportes, estimamos un 15% adicional de material
-  if (hasSupports.value) {
-    finalVolume *= 1.15
+  // Calcular el volumen real que ocupan las paredes sólidas (Perímetros externos)
+  let volumenParedesMm3 = areaSuperficialMm2 * CONFIG_WALL_THICKNESS_MM
+  
+  // Control de desbordamiento por si la pieza es más pequeña que el grosor de las paredes
+  if (volumenParedesMm3 > volumenTotalMm3) {
+    volumenParedesMm3 = volumenTotalMm3
   }
 
-  return finalVolume * density // Peso = Volumen impreso * Densidad
+  // Extraer el volumen del núcleo interno (el vacío interno)
+  const volumenNucleoMm3 = volumenTotalMm3 - volumenParedesMm3
+
+  // Aplicar porcentaje de relleno (Infill Fraction) restando la fracción de aire vacío
+  const infillFraction = infill.value / 100
+  const volumenPlasticoRealMm3 = volumenParedesMm3 + (volumenNucleoMm3 * infillFraction)
+
+  // Convertir el volumen real impreso de mm³ a cm³
+  let finalVolumeCm3 = volumenPlasticoRealMm3 / 1000
+
+  // Si tiene soportes activos, sumar un 12% aproximado de material estructural sacrificable
+  if (hasSupports.value) {
+    finalVolumeCm3 *= 1.12
+  }
+
+  // Masa = Volumen Real (cm³) * Densidad (g/cm³)
+  return finalVolumeCm3 * density
 })
 
-// 2. Longitud del filamento (m) para filamento estándar de 1.75mm de diámetro
+// 2. Longitud del filamento (m) para filamento estándar de ø1.75mm
 const estLength = computed(() => {
   if (estWeight.value === 0) return 0
   const specs = MATERIAL_SPECS[selectedMaterial.value] || MATERIAL_SPECS.PLA
   
-  // Radio de filamento estándar: 1.75mm / 2 = 0.875mm = 0.0875cm
-  // Área transversal: pi * r^2 = pi * 0.0875^2 = 0.02405 cm2
-  const crossSectionArea = 0.02405 // cm2
+  // Área de sección transversal de filamento estándar: pi * r² (r = 0.0875 cm)
+  const crossSectionArea = 0.02405 // cm²
   
-  // Volumen impreso = Peso / Densidad
+  // Volumen real consumido en cm³
   const printedVolumeCm3 = estWeight.value / specs.density
   
   // Longitud en cm = Volumen / Área transversal
   const lengthCm = printedVolumeCm3 / crossSectionArea
   
-  // Retornar en metros
-  return lengthCm / 100
+  return lengthCm / 100 // Retorna metros lineales
 })
 
-// 3. Costo estimado en USD
+// 3. Costo estimado basado en variables centralizadas (Moneda local: Bs.)
 const estCost = computed(() => {
-  const pricePerKg = MATERIAL_PRICES[selectedMaterial.value] || 22
-  return (estWeight.value / 1000) * pricePerKg
+  return estWeight.value * PRECIO_FILAMENTO_POR_GRAMO_BOB
 })
 
 // 4. Tiempo de impresión estimado en minutos
 const estTimeMin = computed(() => {
   if (volume.value === 0) return 0
 
-  // Velocidad de impresión estándar según material (mm/s)
   const speedMap: Record<string, number> = {
     PLA: 60,
     ABS: 50,
@@ -302,34 +301,30 @@ const estTimeMin = computed(() => {
   }
   const speed = speedMap[selectedMaterial.value] || 50
 
-  // Volumen en mm3
-  const volumeMm3 = volume.value * 1000
+  const volumenTotalMm3 = volume.value * 1000
+  const dx = boundingBox.value ? boundingBox.value.size.x : 50
+  const dy = boundingBox.value ? boundingBox.value.size.y : 50
+  const dz = boundingBox.value ? boundingBox.value.size.z : 50
+  const areaSuperficialMm2 = 2 * (dx * dy + dy * dz + dx * dz)
 
-  // Volumen impreso estimado en mm3
-  const shellFraction = 0.22
-  const infillFraction = infill.value / 100
-  const printedVolumeMm3 = volumeMm3 * (shellFraction + (1 - shellFraction) * infillFraction)
+  const volumenParedesMm3 = Math.min(areaSuperficialMm2 * CONFIG_WALL_THICKNESS_MM, volumenTotalMm3)
+  const volumenNucleoMm3 = volumenTotalMm3 - volumenParedesMm3
+  const printedVolumeMm3 = volumenParedesMm3 + (volumenNucleoMm3 * (infill.value / 100))
 
-  // Estimación de tiempo basada en la tasa de extrusión volumétrica máxima
-  // Tasa = Velocidad * Diámetro Boquilla (0.4) * Altura Capa
   const nozzleDiameter = 0.4
-  const extrusionRate = speed * nozzleDiameter * layerHeight.value // mm3/s
+  const extrusionRate = speed * nozzleDiameter * layerHeight.value // mm³/s
 
   let timeSeconds = printedVolumeMm3 / extrusionRate
-
-  // Tiempo adicional de calentamiento de boquilla/cama y movimientos en vacío (aprox 15 min)
   let timeMin = (timeSeconds / 60) + 15
 
-  // Si tiene soportes, incrementa un 25% el tiempo por la retracción y cambio de trayectorias
   if (hasSupports.value) {
     timeMin *= 1.25
   }
 
-  // Factor de escala por detalles (si la altura de capa es muy fina, aumenta la resolución y el recorrido)
   if (layerHeight.value === 0.12) {
-    timeMin *= 1.4 // 40% más lento debido a más capas
+    timeMin *= 1.4 
   } else if (layerHeight.value === 0.28) {
-    timeMin *= 0.75 // 25% más rápido
+    timeMin *= 0.75 
   }
 
   return Math.round(timeMin)
@@ -384,7 +379,6 @@ const processFile = async (file: File) => {
   }
 }
 
-// Disparar actualizaciones del modelo cargado hacia la app
 const triggerAnalysisUpdate = () => {
   if (volume.value === 0) return
 
@@ -403,14 +397,12 @@ const triggerAnalysisUpdate = () => {
   })
 }
 
-// Observar cambios en ajustes para recalcular y emitir cambios
 watch([selectedMaterial, infill, layerHeight, hasSupports], () => {
   if (volume.value > 0) {
     triggerAnalysisUpdate()
   }
 })
 
-// Enviar a impresión: Guarda en base de datos e inicia simulación
 const triggerPrint = async () => {
   if (volume.value === 0 || !boundingBox.value) return
 
@@ -428,17 +420,14 @@ const triggerPrint = async () => {
   }
 
   try {
-    // Guardar en Supabase (o LocalStorage fallback)
     const savedModel = await dbService.saveModel(modelData)
     emit('print', savedModel)
   } catch (err) {
     console.error('Error guardando modelo:', err)
-    // Emitir con datos locales si hay error de base de datos
     emit('print', modelData)
   }
 }
 
-// Formatear minutos a formato legible "2h 45m"
 const formatTime = (totalMinutes: number): string => {
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60

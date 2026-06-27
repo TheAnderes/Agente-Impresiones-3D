@@ -224,7 +224,7 @@ El modelo tiene una altura de **${height}mm**. Para evaluar la necesidad de sopo
 - **Volumen de plástico:** ${model.volume_cm3.toFixed(2)} cm³
 - **Material configurado:** ${mat} (${specs.temp} / ${specs.bed})
 
-Para responder a tu pregunta sobre "${prompt}":
+Para responder a tu pregunta sobre: "${prompt}":
 
 En el ámbito de la impresión 3D, estos parámetros físicos determinan que la pieza de **${mat}** responderá mejor si mantienes un control estricto sobre las temperaturas y la calibración de la primera capa. Dado que la pieza tiene un volumen de **${model.volume_cm3.toFixed(1)} cm³**, te sugiero mantener el relleno en **${model.infill_percent}%** con un patrón Giroide, lo que mantendrá el consumo del material en torno a los **${model.estimated_weight_g.toFixed(1)} gramos** y un costo de producción muy bajo.
 

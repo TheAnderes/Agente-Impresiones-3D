@@ -1,57 +1,80 @@
 <template>
   <div class="viewer-container">
-    <!-- Controles flotantes sobre el visor -->
-    <div class="viewer-toolbar">
-      <v-btn-toggle
-        v-model="viewMode"
-        mandatory
-        variant="flat"
-        density="compact"
-        color="primary"
-        class="glass-toggle"
-      >
-        <v-btn value="solid" size="small" prepend-icon="mdi-cube">Sólido</v-btn>
-        <v-btn value="wireframe" size="small" prepend-icon="mdi-grid">Malla</v-btn>
-      </v-btn-toggle>
-
-      <v-btn
-        :color="autoRotate ? 'primary' : 'grey-darken-3'"
-        variant="flat"
-        density="compact"
-        icon="mdi-rotate-3d"
-        class="ms-2"
-        @click="autoRotate = !autoRotate"
-        title="Rotación Automática"
-      ></v-btn>
-
-      <v-btn
-        color="grey-darken-3"
-        variant="flat"
-        density="compact"
-        icon="mdi-focus-field"
-        class="ms-2"
-        @click="resetCamera"
-        title="Centrar Cámara"
-      ></v-btn>
-    </div>
-
-    <!-- Indicador de carga / sin modelo -->
     <div v-if="!positions || positions.length === 0" class="viewer-placeholder d-flex flex-column align-center justify-center">
       <v-icon size="64" color="grey-lighten-1" class="mb-4 animate-pulse">mdi-printer-3d-nozzle-outline</v-icon>
       <div class="text-h6 text-grey-lighten-1 mb-2">Visor de Modelo 3D</div>
       <div class="text-body-2 text-grey-darken-1 text-center max-width-300">
-        Arrastra o selecciona un archivo STL en el panel izquierdo para visualizarlo e iniciar el análisis.
+        Carga un archivo STL para iniciar el análisis volumétrico en la Ender 3.
       </div>
     </div>
 
-    <!-- El lienzo de Three.js -->
-    <div ref="canvasContainer" class="canvas-container"></div>
+    <div v-else class="viewer-active-content">
+      <div class="viewer-toolbar">
+        <v-btn-toggle
+          v-model="viewMode"
+          mandatory
+          variant="flat"
+          density="compact"
+          color="primary"
+          class="glass-toggle"
+        >
+          <v-btn value="solid" size="small" prepend-icon="mdi-cube-outline">Sólido</v-btn>
+          <v-btn value="wireframe" size="small" prepend-icon="mdi-iframe-outline">Malla</v-btn>
+        </v-btn-toggle>
 
-    <!-- Leyenda de dimensiones en las esquinas -->
-    <div v-if="boundingBoxSize && positions && positions.length > 0" class="dimensions-overlay">
-      <div class="dim-badge">X: {{ Math.round(boundingBoxSize.x) }} mm</div>
-      <div class="dim-badge">Y: {{ Math.round(boundingBoxSize.y) }} mm</div>
-      <div class="dim-badge">Z: {{ Math.round(boundingBoxSize.z) }} mm</div>
+        <div class="glass-toggle-group ms-2">
+          <v-btn
+            :color="orientMode ? 'warning' : 'transparent'"
+            variant="flat"
+            size="small"
+            class="action-btn-format"
+            @click="toggleOrientMode"
+            title="Alinear cara a la placa de impresión"
+          >
+            <v-icon size="16" class="me-2">{{ orientMode ? 'mdi-cursor-pointer' : 'mdi-tray-arrow-down' }}</v-icon>
+            Alinear Cara
+          </v-btn>
+
+          <div class="inner-divider"></div>
+
+          <v-btn
+            color="transparent"
+            variant="flat"
+            size="small"
+            class="action-btn-format"
+            @click="resetCamera"
+            title="Centrar Vista de la Cámara"
+          >
+            <v-icon size="16" class="me-2">mdi-camera-flip-outline</v-icon>
+            Centrar Vista
+          </v-btn>
+        </div>
+      </div>
+
+      <div ref="canvasContainer" class="canvas-container" @click="handleCanvasClick"></div>
+
+      <div ref="labelsContainer"></div>
+
+      <v-fade-transition>
+        <div v-if="autoScaledAlert" class="scale-warning-alert">
+          <v-icon class="me-1" size="16">mdi-alert-circle-outline</v-icon>
+          Modelo gigante autocomprimido para ajustarse a la cama.
+        </div>
+      </v-fade-transition>
+
+      <div class="info-overlay-left">
+        <span class="section-title">PIEZA ACTUAL</span>
+        <div class="badge-row"><span class="lbl-x">X:</span> {{ currentModelDims.x.toFixed(1) }} mm</div>
+        <div class="badge-row"><span class="lbl-y">Y:</span> {{ currentModelDims.y.toFixed(1) }} mm</div>
+        <div class="badge-row"><span class="lbl-z">Z:</span> {{ currentModelDims.z.toFixed(1) }} mm</div>
+      </div>
+
+      <div class="info-overlay-right">
+        <span class="section-title">VOLUMEN ÚTIL ENDER 3</span>
+        <div class="badge-row-bed">220 mm <span class="lbl-bed">(Ancho)</span></div>
+        <div class="badge-row-bed">220 mm <span class="lbl-bed">(Largo)</span></div>
+        <div class="badge-row-bed">250 mm <span class="lbl-bed">(Alto Max)</span></div>
+      </div>
     </div>
   </div>
 </template>
@@ -60,6 +83,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 
 const props = defineProps<{
   positions: Float32Array | null
@@ -70,292 +94,313 @@ const props = defineProps<{
 
 const canvasContainer = ref<HTMLDivElement | null>(null)
 const viewMode = ref<'solid' | 'wireframe'>('solid')
-const autoRotate = ref(true)
+const orientMode = ref(false)
+const autoScaledAlert = ref(false)
 
-// Variables de Three.js
+// Configuración de Costos y Material (Mapeado dinámico)
+const PRECIO_POR_GRAMO_BOB = 1.0     
+const CONFIG_WALL_THICKNESS = 1.2   
+const CONFIG_MATERIAL_DENSITY = 1.24 
+const CONFIG_INFILL_PERCENT = 15.0  
+
+const currentModelDims = ref({ x: 0, y: 0, z: 0 })
+const materialMetrics = ref({ peso: 0, costo: 0 })
+
+// Instancias core de Three.js
 let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
 let renderer: THREE.WebGLRenderer | null = null
+let labelRenderer: CSS2DRenderer | null = null
 let controls: OrbitControls | null = null
+
 let modelMesh: THREE.Mesh | null = null
 let boxHelper: THREE.BoxHelper | null = null
 let gridHelper: THREE.GridHelper | null = null
 let animationFrameId: number | null = null
 
-// Inicializar la escena de Three.js
+let labelX: CSS2DObject | null = null
+let labelY: CSS2DObject | null = null
+let labelZ: CSS2DObject | null = null
+
+const raycaster = new THREE.Raycaster()
+const mouse = new THREE.Vector2()
+
+const BED_X = 220; const BED_Y = 220; const BED_Z = 250
+
+const toggleOrientMode = () => { orientMode.value = !orientMode.value }
+
 const initThree = () => {
   if (!canvasContainer.value) return
 
-  // 1. Escena
   scene = new THREE.Scene()
-  scene.background = new THREE.Color('#0a0e17') // Fondo oscuro premium
-  scene.fog = new THREE.FogExp2('#0a0e17', 0.0025)
+  scene.background = new THREE.Color('#0a0e17')
+  scene.fog = new THREE.FogExp2('#0a0e17', 0.002)
 
-  // 2. Cámara
   const width = canvasContainer.value.clientWidth
   const height = canvasContainer.value.clientHeight
-  camera = new THREE.PerspectiveCamera(45, width / height, 1, 2000)
-  camera.position.set(150, 150, 150)
+  
+  camera = new THREE.PerspectiveCamera(40, width / height, 1, 5000)
+  camera.position.set(240, 200, 240)
 
-  // 3. Renderizador con antialiasing
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
   renderer.setSize(width, height)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-  // Limpiar contenedor y añadir canvas
   canvasContainer.value.innerHTML = ''
   canvasContainer.value.appendChild(renderer.domElement)
 
-  // 4. Controles orbitales
+  labelRenderer = new CSS2DRenderer()
+  labelRenderer.setSize(width, height)
+  labelRenderer.domElement.style.position = 'absolute'
+  labelRenderer.domElement.style.top = '0px'
+  labelRenderer.domElement.style.pointerEvents = 'none'
+  canvasContainer.value.appendChild(labelRenderer.domElement)
+
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.dampingFactor = 0.05
-  controls.maxPolarAngle = Math.PI / 2 - 0.01 // Evitar pasar por debajo del suelo
-  controls.minDistance = 20
-  controls.maxDistance = 500
+  controls.maxPolarAngle = Math.PI / 2 - 0.01
+  controls.minDistance = 30
+  controls.maxDistance = 1200
 
-  // 5. Luces premium
-  const ambientLight = new THREE.AmbientLight('#182235', 1.5)
-  scene.add(ambientLight)
+  scene.add(new THREE.AmbientLight('#111827', 2.2))
+  const sunLight = new THREE.DirectionalLight('#ffffff', 1.4)
+  sunLight.position.set(160, 260, 110)
+  scene.add(sunLight)
 
-  // Luz direccional principal (sol) con sombras
-  const dirLight = new THREE.DirectionalLight('#ffffff', 1.8)
-  dirLight.position.set(120, 200, 100)
-  dirLight.castShadow = true
-  dirLight.shadow.mapSize.width = 1024
-  dirLight.shadow.mapSize.height = 1024
-  dirLight.shadow.camera.near = 0.5
-  dirLight.shadow.camera.far = 500
-  const d = 150
-  dirLight.shadow.camera.left = -d
-  dirLight.shadow.camera.right = d
-  dirLight.shadow.camera.top = d
-  dirLight.shadow.camera.bottom = -d
-  dirLight.shadow.bias = -0.0005
-  scene.add(dirLight)
-
-  // Luz de acento cian
-  const cyanLight = new THREE.PointLight('#00d2ff', 2, 150)
-  cyanLight.position.set(-80, 50, -80)
-  scene.add(cyanLight)
-
-  // Luz de acento violeta
-  const purpleLight = new THREE.PointLight('#9c27b0', 1.5, 150)
-  purpleLight.position.set(80, 20, -80)
-  scene.add(purpleLight)
-
-  // 6. Cama caliente virtual de la impresora (Suelo / Grid)
-  const bedSize = 220
-  gridHelper = new THREE.GridHelper(bedSize, 22, '#2196f3', '#1a237e')
-  // Mover el grid para que esté centrado
-  gridHelper.position.y = 0
+  gridHelper = new THREE.GridHelper(BED_X, 22, '#00e5ff', '#1e293b')
   scene.add(gridHelper)
 
-  // Subsuelo reflectante/sombra
-  const floorGeo = new THREE.PlaneGeometry(bedSize, bedSize)
-  const floorMat = new THREE.MeshStandardMaterial({
-    color: '#0d1321',
-    roughness: 0.8,
-    metalness: 0.2
-  })
-  const floor = new THREE.Mesh(floorGeo, floorMat)
-  floor.rotation.x = -Math.PI / 2
-  floor.position.y = -0.1
-  floor.receiveShadow = true
-  scene.add(floor)
+  const volumeGeo = new THREE.BoxGeometry(BED_X, BED_Z, BED_Y)
+  const volumeLines = new THREE.LineSegments(
+    new THREE.EdgesGeometry(volumeGeo), 
+    new THREE.LineBasicMaterial({ color: 'rgba(0, 229, 255, 0.12)' })
+  )
+  volumeLines.position.set(0, BED_Z / 2, 0)
+  scene.add(volumeLines)
 
-  // Evento de redimensionamiento
+  labelX = createCotaDOM('cota-model-x')
+  labelY = createCotaDOM('cota-model-y')
+  labelZ = createCotaDOM('cota-model-z')
+
   window.addEventListener('resize', onWindowResize)
-
-  // Iniciar bucle de animación
   animate()
 }
 
-// Bucle de animación
+const createCotaDOM = (className: string): CSS2DObject => {
+  const div = document.createElement('div')
+  div.className = `cota-label-3d ${className}`
+  const obj = new CSS2DObject(div)
+  scene?.add(obj)
+  return obj
+}
+
 const animate = () => {
   animationFrameId = requestAnimationFrame(animate)
-
   if (controls) controls.update()
 
-  if (autoRotate.value && modelMesh) {
-    modelMesh.rotation.y += 0.005
-    if (boxHelper) boxHelper.update()
-  }
-
-  if (renderer && scene && camera) {
+  if (renderer && scene && camera && labelRenderer) {
     renderer.render(scene, camera)
+    labelRenderer.render(scene, camera)
   }
 }
 
-// Cargar la geometría del modelo en la escena
+const asentarModeloEnSuelo = () => {
+  if (!modelMesh) return
+  modelMesh.geometry.computeBoundingBox()
+  const box = new THREE.Box3().setFromObject(modelMesh)
+  modelMesh.position.y = (modelMesh.position.y - box.min.y)
+}
+
+const actualizarCotas3D = () => {
+  if (!modelMesh) return
+
+  const box = new THREE.Box3().setFromObject(modelMesh)
+  const size = new THREE.Vector3()
+  box.getSize(size)
+
+  currentModelDims.value = { x: size.x, y: size.z, z: size.y }
+
+  if (labelX) {
+    labelX.position.set((box.max.x + box.min.x) / 2, box.min.y, box.max.z + 5)
+    labelX.element.innerText = `X: ${size.x.toFixed(1)} mm`
+  }
+  if (labelY) {
+    labelY.position.set(box.max.x + 5, box.min.y, (box.max.z + box.min.z) / 2)
+    labelY.element.innerText = `Y: ${size.z.toFixed(1)} mm`
+  }
+  if (labelZ) {
+    labelZ.position.set(box.min.x - 5, (box.max.y + box.min.y) / 2, box.min.z)
+    labelZ.element.innerText = `Z: ${size.y.toFixed(1)} mm`
+  }
+
+  if (boxHelper) boxHelper.update()
+}
+
+const handleCanvasClick = (event: MouseEvent) => {
+  if (!orientMode.value || !modelMesh || !camera) return
+
+  const rect = renderer!.domElement.getBoundingClientRect()
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+  raycaster.setFromCamera(mouse, camera)
+  const intersects = raycaster.intersectObject(modelMesh)
+
+  if (intersects.length > 0 && intersects[0].face) {
+    const normal = intersects[0].face.normal.clone().applyQuaternion(modelMesh.quaternion)
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(normal, new THREE.Vector3(0, -1, 0))
+
+    modelMesh.quaternion.premultiply(quaternion)
+    asentarModeloEnSuelo()
+    actualizarCotas3D()
+    orientMode.value = false
+  }
+}
+
+const calcularSlicerApproximation = (geometry: THREE.BufferGeometry) => {
+  const position = geometry.attributes.position
+  if (!position) return
+
+  let volumeTotalMm3 = 0
+  let areaSuperficialMm2 = 0
+
+  const vA = new THREE.Vector3()
+  const vB = new THREE.Vector3()
+  const vC = new THREE.Vector3()
+
+  for (let i = 0; i < position.count; i += 3) {
+    vA.fromBufferAttribute(position, i)
+    vB.fromBufferAttribute(position, i + 1)
+    vC.fromBufferAttribute(position, i + 2)
+
+    const signedVolume = vA.dot(vB.cross(vC)) / 6.0
+    volumeTotalMm3 += signedVolume
+
+    const edge1 = new THREE.Vector3().subVectors(vB, vA)
+    const edge2 = new THREE.Vector3().subVectors(vC, vA)
+    const crossProduct = new THREE.Vector3().crossVectors(edge1, edge2)
+    areaSuperficialMm2 += crossProduct.length() / 2.0
+  }
+
+  volumeTotalMm3 = Math.abs(volumeTotalMm3)
+
+  let volumenCorazaMm3 = areaSuperficialMm2 * CONFIG_WALL_THICKNESS
+  if (volumenCorazaMm3 > volumeTotalMm3) {
+    volumenCorazaMm3 = volumeTotalMm3
+  }
+
+  const volumenNucleoMm3 = volumeTotalMm3 - volumenCorazaMm3
+  const volumenPlasticoRealMm3 = volumenCorazaMm3 + (volumenNucleoMm3 * (CONFIG_INFILL_PERCENT / 100))
+  
+  const volumenCm3 = volumenPlasticoRealMm3 / 1000
+  const pesoFinalGramos = volumenCm3 * CONFIG_MATERIAL_DENSITY
+  const costoFinalBOB = pesoFinalGramos * PRECIO_POR_GRAMO_BOB
+
+  materialMetrics.value = {
+    peso: pesoFinalGramos,
+    costo: costoFinalBOB
+  }
+}
+
 const loadModel = () => {
   if (!scene || !props.positions || props.positions.length === 0) return
 
-  // Limpiar modelo anterior
+  autoScaledAlert.value = false
+
   if (modelMesh) {
     scene.remove(modelMesh)
-    if (modelMesh.geometry) modelMesh.geometry.dispose()
-    if (Array.isArray(modelMesh.material)) {
-      modelMesh.material.forEach(m => m.dispose())
-    } else {
-      modelMesh.material.dispose()
-    }
-    modelMesh = null
+    modelMesh.geometry.dispose()
   }
+  if (boxHelper) scene.remove(boxHelper)
 
-  if (boxHelper) {
-    scene.remove(boxHelper)
-    boxHelper = null
-  }
-
-  // Crear geometría desde el Float32Array
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(props.positions, 3))
   geometry.computeVertexNormals()
 
-  // Material premium reflectante (Plástico brillante translúcido)
-  const material = new THREE.MeshStandardMaterial({
-    color: '#00e5ff', // Cian brillante
-    roughness: 0.2,
-    metalness: 0.1,
-    transparent: true,
-    opacity: viewMode.value === 'solid' ? 0.9 : 0.2,
-    wireframe: viewMode.value === 'wireframe',
-    side: THREE.DoubleSide
-  })
+  modelMesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+    color: '#00e5ff', roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide
+  }))
 
-  modelMesh = new THREE.Mesh(geometry, material)
-  modelMesh.castShadow = true
-  modelMesh.receiveShadow = true
-
-  // Centrar el modelo en la cama (X e Y) y asentarlo en el suelo (Z = 0)
   geometry.computeBoundingBox()
   const bbox = geometry.boundingBox
-
+  
   if (bbox) {
     const center = new THREE.Vector3()
     bbox.getCenter(center)
-
-    // Desplazar los vértices para centrar el modelo en el origen del Mesh
     geometry.translate(-center.x, -bbox.min.y, -center.z)
 
-    // Colocar el Mesh en el centro de la cama caliente (0, 0, 0)
-    modelMesh.position.set(0, 0, 0)
+    const size = new THREE.Vector3()
+    bbox.getSize(size)
+
+    const maxAllowedDim = 180 
+    const maxModelDim = Math.max(size.x, size.y, size.z)
+
+    if (maxModelDim > BED_X) {
+      const safetyScaleFactor = maxAllowedDim / maxModelDim
+      modelMesh.scale.set(safetyScaleFactor, safetyScaleFactor, safetyScaleFactor)
+      autoScaledAlert.value = true
+      setTimeout(() => { autoScaledAlert.value = false }, 5000)
+    }
+
+    calcularSlicerApproximation(geometry)
   }
 
   scene.add(modelMesh)
 
-  // Agregar caja delimitadora premium
-  boxHelper = new THREE.BoxHelper(modelMesh, new THREE.Color('#00e5ff'))
+  boxHelper = new THREE.BoxHelper(modelMesh, new THREE.Color('#ffb300'))
   scene.add(boxHelper)
 
-  // Ajustar cámara para encuadrar el modelo
+  asentarModeloEnSuelo()
+  actualizarCotas3D()
   resetCamera()
 }
 
-// Resetear y enfocar la cámara al modelo
-const resetCamera = () => {
-  if (!camera || !controls || !props.boundingBoxSize) return
-
-  const size = props.boundingBoxSize
-  const maxDim = Math.max(size.x, size.y, size.z)
-
-  // Calcular distancia de cámara adecuada
-  const distance = maxDim * 2.2 || 120
-
-  camera.position.set(distance, distance * 0.8, distance)
-  controls.target.set(0, size.z / 2 || 20, 0)
-  controls.update()
-}
-
-// Manejar redimensionamiento
-const onWindowResize = () => {
-  if (!canvasContainer.value || !camera || !renderer) return
-  const width = canvasContainer.value.clientWidth
-  const height = canvasContainer.value.clientHeight
-
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-  renderer.setSize(width, height)
-}
-
-// Observar cambios en el modo de visualización (sólido vs malla)
 watch(viewMode, (newMode) => {
   if (!modelMesh) return
   const mat = modelMesh.material as THREE.MeshStandardMaterial
+  mat.wireframe = newMode === 'wireframe'
+  mat.opacity = newMode === 'wireframe' ? 0.25 : 1.0
+})
 
-  if (newMode === 'wireframe') {
-    mat.wireframe = true
-    mat.opacity = 0.4
-  } else {
-    mat.wireframe = false
-    mat.opacity = 0.9
+watch(() => props.positions, (newVal) => {
+  if (newVal && newVal.length > 0) {
+    nextTick(() => {
+      if (!scene) initThree()
+      loadModel()
+    })
   }
-  mat.needsUpdate = true
-})
+}, { immediate: true })
 
-// Observar cambios en la geometría cargada
-watch(() => props.positions, () => {
-  nextTick(() => {
-    if (!scene) {
-      initThree()
-    }
-    loadModel()
-  })
-})
+const resetCamera = () => {
+  if (!camera || !controls || !props.boundingBoxSize) return
+  camera.position.set(240, 200, 240)
+  controls.target.set(0, props.boundingBoxSize.z / 4, 0)
+  controls.update()
+}
+
+const onWindowResize = () => {
+  if (!canvasContainer.value || !camera || !renderer || !labelRenderer) return
+  const w = canvasContainer.value.clientWidth; const h = canvasContainer.value.clientHeight
+  camera.aspect = w / h; camera.updateProjectionMatrix()
+  renderer.setSize(w, h); labelRenderer.setSize(w, h)
+}
 
 onMounted(() => {
-  // Retraso ligero para permitir que la Grid de Vuetify se asiente en el DOM y tome las medidas correctas
   setTimeout(() => {
-    initThree()
     if (props.positions && props.positions.length > 0) {
+      initThree()
       loadModel()
     }
-  }, 300)
+  }, 350)
 })
 
 onBeforeUnmount(() => {
-  // Detener bucle
-  if (animationFrameId !== null) {
-    cancelAnimationFrame(animationFrameId)
-  }
-
-  // Quitar listener de redimensión
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
   window.removeEventListener('resize', onWindowResize)
-
-  // Liberar recursos de Three.js
-  if (modelMesh) {
-    if (modelMesh.geometry) modelMesh.geometry.dispose()
-    if (Array.isArray(modelMesh.material)) {
-      modelMesh.material.forEach(m => m.dispose())
-    } else {
-      modelMesh.material.dispose()
-    }
-  }
-
-  if (gridHelper) {
-    gridHelper.geometry.dispose()
-    if (Array.isArray(gridHelper.material)) {
-      gridHelper.material.forEach(m => m.dispose())
-    } else {
-      gridHelper.material.dispose()
-    }
-  }
-
-  if (renderer) {
-    renderer.dispose()
-  }
-
-  if (controls) {
-    controls.dispose()
-  }
-
-  scene = null
-  camera = null
-  renderer = null
-  controls = null
+  if (renderer) renderer.dispose()
+  if (labelRenderer) labelRenderer.domElement.remove()
 })
 </script>
 
@@ -364,83 +409,133 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 450px;
+  min-height: 520px;
+  max-height: 82vh; 
   background-color: #0a0e17;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+}
+
+.viewer-active-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-grow: 1;
 }
 
 .canvas-container {
   width: 100%;
   height: 100%;
-  min-height: 450px;
 }
 
 .viewer-placeholder {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
   background-color: #0a0e17;
-  pointer-events: none;
+  z-index: 5;
 }
 
 .viewer-toolbar {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 2;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
   display: flex;
-  align-items: center;
 }
 
 .glass-toggle {
-  background: rgba(15, 23, 42, 0.6) !important;
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Contenedor encapsulado para mantener el formato idéntico a v-btn-toggle */
+.glass-toggle-group {
+  display: flex;
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 4px; /* Alineado al radio por defecto de Vuetify */
   overflow: hidden;
 }
 
-.dimensions-overlay {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: none;
+/* Formato estricto para igualar altura, padding y fuente de los botones estándar */
+.action-btn-format {
+  height: 28px !important; /* Altura compact estándar de Vuetify */
+  font-size: 0.75rem !important; /* Tamaño small (12px) */
+  font-weight: 500;
+  text-transform: none !important; /* Quita las mayúsculas forzadas */
+  letter-spacing: 0.025em;
+  border-radius: 0 !important;
+  padding: 0 12px !important;
+  color: #e6edf3 !important;
 }
 
-.dim-badge {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(8px);
-  border-left: 3px solid #00e5ff;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 4px 10px;
-  border-radius: 4px;
+/* Separador sutil entre los dos nuevos botones */
+.inner-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  align-self: center;
+}
+
+
+
+.scale-warning-alert {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 6px 14px;
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #00e5ff;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+.info-overlay-left, .info-overlay-right {
+  position: absolute; bottom: 12px; z-index: 10;
+  display: flex; flex-direction: column; gap: 4px; pointer-events: none;
+}
+.info-overlay-left { left: 12px; }
+.info-overlay-right { right: 12px; align-items: flex-end; }
+
+.section-title {
+  font-size: 0.65rem;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.badge-row, .badge-row-bed {
+  background: rgba(15, 23, 42, 0.9); padding: 4px 10px; border-radius: 4px;
+  font-size: 0.72rem; font-family: monospace;
+}
+.badge-row { color: #ffb300; border-left: 3px solid #ffb300; }
+.badge-row-bed { color: #00e5ff; border-right: 3px solid #00e5ff; }
+
+:deep(.cota-label-3d) {
   font-family: monospace;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid #ffb300;
+  color: #ffb300;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  white-space: nowrap;
 }
 
-.max-width-300 {
-  max-width: 300px;
-}
-
-.animate-pulse {
-  animation: pulse 2s infinite ease-in-out;
-}
-
+.animate-pulse { animation: pulse 2s infinite ease-in-out; }
 @keyframes pulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.98); }
-  50% { opacity: 0.8; transform: scale(1.02); }
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
 }
 </style>
