@@ -217,7 +217,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       const newUserId = crypto.randomUUID()
       // Asignar rol admin si el correo empieza con admin, de lo contrario operator
-      const assignedRole = email.startsWith('admin') ? 'admin' : 'operator'
+      const assignedRole = 'admin'
       
       const newMockUser = {
         id: newUserId,

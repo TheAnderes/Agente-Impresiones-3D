@@ -10,15 +10,8 @@
       <v-spacer></v-spacer>
 
       <!-- Selector de Vista (Solo si está logueado como Operador o Admin) -->
-      <v-btn-toggle
-        v-if="isLoggedIn && (userRole === 'admin' || userRole === 'operator')"
-        v-model="activeView"
-        mandatory
-        variant="flat"
-        density="compact"
-        color="primary"
-        class="glass-toggle me-4"
-      >
+      <v-btn-toggle v-if="isLoggedIn && (userRole === 'admin' || userRole === 'operator')" v-model="activeView"
+        mandatory variant="flat" density="compact" color="primary" class="glass-toggle me-4">
         <v-btn value="dashboard" prepend-icon="mdi-view-dashboard">Dashboard</v-btn>
         <v-btn value="history" prepend-icon="mdi-history">Historial</v-btn>
         <v-btn v-if="userRole === 'admin'" value="admin" prepend-icon="mdi-shield-account">Administración</v-btn>
@@ -27,39 +20,22 @@
       <!-- Botón de Invitado / Perfil de Usuario -->
       <div class="d-flex align-center gap-2">
         <!-- Indicador de conexión a Supabase -->
-        <v-chip
-          :color="supabaseConnected ? 'success' : 'warning'"
-          variant="tonal"
-          size="small"
-          class="font-weight-bold d-none d-sm-flex"
-          :prepend-icon="supabaseConnected ? 'mdi-database-check' : 'mdi-database-off'"
-        >
+        <v-chip v-if="userRole === 'admin'" :color="supabaseConnected ? 'success' : 'warning'" variant="tonal"
+          size="small" class="font-weight-bold d-none d-sm-flex"
+          :prepend-icon="supabaseConnected ? 'mdi-database-check' : 'mdi-database-off'">
           {{ supabaseConnected ? 'Supabase' : 'Local' }}
         </v-chip>
 
         <!-- Menú de Usuario / Botón de Login -->
-        <v-btn
-          v-if="userRole === 'guest'"
-          color="primary"
-          variant="flat"
-          prepend-icon="mdi-login"
-          class="text-none font-weight-bold"
-          size="small"
-          @click="showAuthDialog = true"
-        >
+        <v-btn v-if="userRole === 'guest'" color="primary" variant="flat" prepend-icon="mdi-login"
+          class="text-none font-weight-bold" size="small" @click="showAuthDialog = true">
           Iniciar Sesión
         </v-btn>
 
         <v-menu v-else>
           <template v-slot:activator="{ props }">
-            <v-btn
-              v-bind="props"
-              color="primary"
-              variant="tonal"
-              prepend-icon="mdi-account-circle"
-              class="text-none font-weight-bold"
-              size="small"
-            >
+            <v-btn v-bind="props" color="primary" variant="tonal" prepend-icon="mdi-account-circle"
+              class="text-none font-weight-bold" size="small">
               {{ userProfile?.full_name.split(' ')[0] }}
               <v-chip :color="getRoleColor(userRole)" size="x-small" class="ms-2 font-weight-black">
                 {{ getRoleText(userRole) }}
@@ -92,27 +68,16 @@
             PAPOIS <span class="text-primary animate-glow">EN 3D</span>
           </h1>
           <p class="text-h6 text-grey-lighten-1 max-width-700 mb-8 font-weight-light">
-            El entorno definitivo para el análisis geométrico, cotización precisa de filamento y asesoramiento con Inteligencia Artificial para impresión 3D.
+            El entorno definitivo para el análisis geométrico, cotización precisa de filamento y asesoramiento con
+            Inteligencia Artificial para impresión 3D.
           </p>
           <div class="d-flex flex-wrap justify-center gap-4">
-            <v-btn
-              color="primary"
-              size="large"
-              variant="flat"
-              prepend-icon="mdi-rocket-launch"
-              class="text-none font-weight-bold px-8 pulse-btn"
-              @click="showAuthDialog = true"
-            >
+            <v-btn color="primary" size="large" variant="flat" prepend-icon="mdi-rocket-launch"
+              class="text-none font-weight-bold px-8 pulse-btn" @click="showAuthDialog = true">
               Comenzar Ahora
             </v-btn>
-            <v-btn
-              color="white"
-              size="large"
-              variant="outlined"
-              prepend-icon="mdi-cube-outline"
-              class="text-none font-weight-bold px-8"
-              @click="enterAsGuest"
-            >
+            <v-btn color="white" size="large" variant="outlined" prepend-icon="mdi-cube-outline"
+              class="text-none font-weight-bold px-8" @click="enterAsGuest">
               Probar Simulador (Invitado)
             </v-btn>
           </div>
@@ -124,18 +89,25 @@
             <v-row class="align-center">
               <v-col cols="12" md="6">
                 <div class="pe-md-8">
-                  <v-chip color="primary" variant="tonal" class="mb-3 font-weight-bold" size="small">CARACTERÍSTICA I</v-chip>
+                  <v-chip color="primary" variant="tonal" class="mb-3 font-weight-bold" size="small">CARACTERÍSTICA
+                    I</v-chip>
                   <h2 class="text-h4 font-weight-bold text-white mb-4">Visualización WebGL 3D en Tiempo Real</h2>
                   <p class="text-body-1 text-grey-darken-1 mb-6">
-                    Renderiza tus archivos STL directamente en el navegador con aceleración por hardware. Examina la pieza desde cualquier ángulo, activa el modo de malla de alambre (wireframe) para inspeccionar la topología de triángulos y encuadra el modelo sobre una cama caliente virtual de 220x220 mm.
+                    Renderiza tus archivos STL directamente en el navegador con aceleración por hardware. Examina la
+                    pieza
+                    desde cualquier ángulo, activa el modo de malla de alambre (wireframe) para inspeccionar la
+                    topología de
+                    triángulos y encuadra el modelo sobre una cama caliente virtual de 220x220 mm.
                   </p>
                   <div class="d-flex align-center gap-3">
                     <v-icon color="primary">mdi-check-circle-outline</v-icon>
-                    <span class="text-body-2 text-grey-lighten-1">Controles orbitales intuitivos (giro, zoom, paneo).</span>
+                    <span class="text-body-2 text-grey-lighten-1">Controles orbitales intuitivos (giro, zoom,
+                      paneo).</span>
                   </div>
                   <div class="d-flex align-center gap-3 mt-2">
                     <v-icon color="primary">mdi-check-circle-outline</v-icon>
-                    <span class="text-body-2 text-grey-lighten-1">Modos de visualización sólido, translúcido y malla estructural.</span>
+                    <span class="text-body-2 text-grey-lighten-1">Modos de visualización sólido, translúcido y malla
+                      estructural.</span>
                   </div>
                 </div>
               </v-col>
@@ -156,18 +128,26 @@
             <v-row class="align-center flex-md-row-reverse">
               <v-col cols="12" md="6">
                 <div class="ps-md-8">
-                  <v-chip color="secondary" variant="tonal" class="mb-3 font-weight-bold" size="small">CARACTERÍSTICA II</v-chip>
+                  <v-chip color="secondary" variant="tonal" class="mb-3 font-weight-bold" size="small">CARACTERÍSTICA
+                    II</v-chip>
                   <h2 class="text-h4 font-weight-bold text-white mb-4">Cotización y Estimación de Materiales</h2>
                   <p class="text-body-1 text-grey-darken-1 mb-6">
-                    Calcula dinámicamente el peso neto del filamento en gramos, la longitud del hilo continuo de 1.75 mm que consumirá la extrusora y el costo estimado en USD según el tipo de filamento seleccionado (PLA, ABS, PETG o TPU). El rebanador matemático se adapta instantáneamente a tus cambios de relleno (infill), altura de capa y uso de soportes.
+                    Calcula dinámicamente el peso neto del filamento en gramos, la longitud del hilo continuo de 1.75 mm
+                    que
+                    consumirá la extrusora y el costo estimado en USD según el tipo de filamento seleccionado (PLA, ABS,
+                    PETG o TPU). El rebanador matemático se adapta instantáneamente a tus cambios de relleno (infill),
+                    altura de capa y uso de soportes.
                   </p>
                   <div class="d-flex align-center gap-3">
                     <v-icon color="secondary">mdi-check-circle-outline</v-icon>
-                    <span class="text-body-2 text-grey-lighten-1">Fórmulas basadas en volumetría y densidades físicas reales.</span>
+                    <span class="text-body-2 text-grey-lighten-1">Fórmulas basadas en volumetría y densidades físicas
+                      reales.</span>
                   </div>
                   <div class="d-flex align-center gap-3 mt-2">
                     <v-icon color="secondary">mdi-check-circle-outline</v-icon>
-                    <span class="text-body-2 text-grey-lighten-1">Precios e infill ajustables en tiempo real con recálculo dinámico.</span>
+                    <span class="text-body-2 text-grey-lighten-1">Precios e infill ajustables en tiempo real con
+                      recálculo
+                      dinámico.</span>
                   </div>
                 </div>
               </v-col>
@@ -188,18 +168,26 @@
             <v-row class="align-center">
               <v-col cols="12" md="6">
                 <div class="pe-md-8">
-                  <v-chip color="info" variant="tonal" class="mb-3 font-weight-bold" size="small">CARACTERÍSTICA III</v-chip>
+                  <v-chip color="info" variant="tonal" class="mb-3 font-weight-bold" size="small">CARACTERÍSTICA
+                    III</v-chip>
                   <h2 class="text-h4 font-weight-bold text-white mb-4">Cálculos de Dimensiones y Volumen Real</h2>
                   <p class="text-body-1 text-grey-darken-1 mb-6">
-                    El motor de parseo lee los bytes del archivo y extrae el volumen del sólido real en centímetros cúbicos ($cm^3$) sumando tetraedros en el espacio tridimensional. Identifica el tamaño exacto de la caja delimitadora (Bounding Box X, Y, Z) para verificar si la pieza cabe físicamente en tu volumen de impresión.
+                    El motor de parseo lee los bytes del archivo y extrae el volumen del sólido real en centímetros
+                    cúbicos
+                    ($cm^3$) sumando tetraedros en el espacio tridimensional. Identifica el tamaño exacto de la caja
+                    delimitadora (Bounding Box X, Y, Z) para verificar si la pieza cabe físicamente en tu volumen de
+                    impresión.
                   </p>
                   <div class="d-flex align-center gap-3">
                     <v-icon color="info">mdi-check-circle-outline</v-icon>
-                    <span class="text-body-2 text-grey-lighten-1">Verificación de cotas y colisiones con el volumen límite de cama.</span>
+                    <span class="text-body-2 text-grey-lighten-1">Verificación de cotas y colisiones con el volumen
+                      límite
+                      de cama.</span>
                   </div>
                   <div class="d-flex align-center gap-3 mt-2">
                     <v-icon color="info">mdi-check-circle-outline</v-icon>
-                    <span class="text-body-2 text-grey-lighten-1">Detección y conteo exacto de facetas (triángulos geométricos).</span>
+                    <span class="text-body-2 text-grey-lighten-1">Detección y conteo exacto de facetas (triángulos
+                      geométricos).</span>
                   </div>
                 </div>
               </v-col>
@@ -219,15 +207,12 @@
           <v-icon color="primary" size="48" class="mb-4">mdi-lock-open-outline</v-icon>
           <h2 class="text-h4 font-weight-bold text-white mb-4">¿Listo para Optimizar tus Impresiones?</h2>
           <p class="text-body-1 text-grey-darken-1 max-width-600 mx-auto mb-8">
-            Crea una cuenta en segundos para desbloquear el Dashboard de trabajo, subir tus propios archivos STL, analizar tus piezas con el Asistente de IA y registrar tus cotizaciones en Supabase.
+            Crea una cuenta en segundos para desbloquear el Dashboard de trabajo, subir tus propios archivos STL,
+            analizar
+            tus piezas con el Asistente de IA y registrar tus cotizaciones en Supabase.
           </p>
-          <v-btn
-            color="primary"
-            size="large"
-            variant="flat"
-            class="font-weight-bold text-none px-12"
-            @click="showAuthDialog = true"
-          >
+          <v-btn color="primary" size="large" variant="flat" class="font-weight-bold text-none px-12"
+            @click="showAuthDialog = true">
             Registrarse / Iniciar Sesión
           </v-btn>
         </section>
@@ -239,38 +224,23 @@
         <v-row v-if="activeView === 'dashboard'" class="fill-height ma-0" dense>
           <!-- PANEL IZQUIERDO: ANALIZADOR Y CONTROL DE PARÁMETROS -->
           <v-col cols="12" md="4" class="pa-2 d-flex flex-column">
-            <ModelAnalyzer
-              @loaded="onModelLoaded"
-              @print="onPrintTriggered"
-            />
+            <ModelAnalyzer @loaded="onModelLoaded" @print="onPrintTriggered" />
           </v-col>
 
           <!-- PANEL CENTRAL: VISOR 3D INTERACTIVO -->
           <v-col cols="12" md="5" class="pa-2 d-flex flex-column">
-            <Model3DViewer
-              :positions="positions"
-              :boundingBoxSize="boundingBoxSize"
-              :boundingBoxMin="boundingBoxMin"
-              :boundingBoxMax="boundingBoxMax"
-            />
+            <Model3DViewer :positions="positions" :boundingBoxSize="boundingBoxSize" :boundingBoxMin="boundingBoxMin"
+              :boundingBoxMax="boundingBoxMax" />
           </v-col>
 
           <!-- PANEL DERECHO: ASISTENTE DE IA / CONSOLA DE IMPRESIÓN -->
           <v-col cols="12" md="3" class="pa-2 d-flex flex-column">
             <!-- Consola de Impresión (Simulación) -->
-            <PrinterConsole
-              v-show="isPrintingActive"
-              ref="printerConsole"
-              :activeModel="activeModel"
-              @status-change="onPrinterStatusChange"
-              @completed="onPrintCompleted"
-            />
+            <PrinterConsole v-show="isPrintingActive" ref="printerConsole" :activeModel="activeModel"
+              @status-change="onPrinterStatusChange" @completed="onPrintCompleted" />
 
             <!-- Chat de IA Asistente -->
-            <AIChatAssistant
-              v-show="!isPrintingActive"
-              :activeModel="activeModel"
-            />
+            <AIChatAssistant v-show="!isPrintingActive" :activeModel="activeModel" />
           </v-col>
         </v-row>
 
@@ -281,28 +251,14 @@
               <h2 class="text-h5 font-weight-black text-white">Historial de Modelos de {{ userProfile?.full_name }}</h2>
               <p class="text-body-2 text-grey-darken-1">Modelos y cotizaciones persistidas</p>
             </div>
-            <v-btn
-              color="primary"
-              variant="outlined"
-              prepend-icon="mdi-refresh"
-              @click="loadHistory"
-              class="text-none"
-            >
+            <v-btn color="primary" variant="outlined" prepend-icon="mdi-refresh" @click="loadHistory" class="text-none">
               Actualizar Historial
             </v-btn>
           </div>
 
           <!-- Grid de Historial -->
           <v-row v-if="savedModels.length > 0">
-            <v-col
-              v-for="model in savedModels"
-              :key="model.id"
-              cols="12"
-              sm="6"
-              md="4"
-              lg="3"
-              class="pa-2"
-            >
+            <v-col v-for="model in savedModels" :key="model.id" cols="12" sm="6" md="4" lg="3" class="pa-2">
               <v-card class="glass-card h-100 d-flex flex-column">
                 <v-card-item class="pb-1">
                   <v-card-title class="text-subtitle-1 font-weight-bold text-truncate" :title="model.name">
@@ -322,7 +278,8 @@
                   <div class="d-flex justify-space-between text-body-2 mb-1">
                     <span class="text-grey-darken-1">Dimensiones:</span>
                     <span class="font-weight-medium text-white">
-                      {{ Math.round(model.bounding_box_x) }}x{{ Math.round(model.bounding_box_y) }}x{{ Math.round(model.bounding_box_z) }} mm
+                      {{ Math.round(model.bounding_box_x) }}x{{ Math.round(model.bounding_box_y) }}x{{
+                        Math.round(model.bounding_box_z) }} mm
                     </span>
                   </div>
                   <div class="d-flex justify-space-between text-body-2 mb-1">
@@ -346,15 +303,8 @@
                 <v-divider class="border-opacity-25"></v-divider>
 
                 <v-card-actions class="pa-2">
-                  <v-btn
-                    color="primary"
-                    variant="tonal"
-                    block
-                    size="small"
-                    prepend-icon="mdi-cube-outline"
-                    class="text-none font-weight-bold"
-                    @click="loadModelIntoDashboard(model)"
-                  >
+                  <v-btn color="primary" variant="tonal" block size="small" prepend-icon="mdi-cube-outline"
+                    class="text-none font-weight-bold" @click="loadModelIntoDashboard(model)">
                     Cargar en Visor
                   </v-btn>
                 </v-card-actions>
@@ -380,10 +330,7 @@
     </v-main>
 
     <!-- Diálogo de Autenticación -->
-    <AuthDialog
-      v-model="showAuthDialog"
-      @success="onAuthSuccess"
-    />
+    <AuthDialog v-model="showAuthDialog" @success="onAuthSuccess" />
   </v-app>
 </template>
 
@@ -447,7 +394,7 @@ const isPrintingActive = computed(() => {
 
 onMounted(async () => {
   await authStore.initializeAuth()
-  
+
   // Si es un invitado (no logueado), inicializar los visualizadores 3D en la landing page
   if (userRole.value === 'guest' && !showGuestDashboard.value) {
     nextTick(() => {
@@ -495,7 +442,7 @@ const initLandingViewers = () => {
   destroyLandingViewers() // Limpieza preventiva
 
   const canvases = [miniCanvas1.value, miniCanvas2.value, miniCanvas3.value]
-  
+
   // Geometrías para cada sección
   // 1. Torus Knot (Estructura compleja)
   const geom1 = new THREE.TorusKnotGeometry(12, 4, 120, 16)
@@ -608,7 +555,7 @@ const destroyLandingViewers = () => {
   })
 
   miniScenes = []
-  
+
   if (miniCanvas1.value) miniCanvas1.value.innerHTML = ''
   if (miniCanvas2.value) miniCanvas2.value.innerHTML = ''
   if (miniCanvas3.value) miniCanvas3.value.innerHTML = ''
@@ -650,7 +597,7 @@ const onPrintTriggered = (savedModel: ModelData) => {
 
   activeModel.value = savedModel
   printerStatus.value = 'heating'
-  
+
   nextTick(() => {
     if (printerConsole.value) {
       printerConsole.value.startPrint(savedModel)
@@ -684,8 +631,8 @@ const loadModelIntoDashboard = (model: ModelData) => {
   activeModel.value = model
   positions.value = generateBoxVertices(model.bounding_box_x, model.bounding_box_y, model.bounding_box_z)
   boundingBoxSize.value = { x: model.bounding_box_x, y: model.bounding_box_y, z: model.bounding_box_z }
-  boundingBoxMin.value = { x: -model.bounding_box_x/2, y: 0, z: -model.bounding_box_z/2 }
-  boundingBoxMax.value = { x: model.bounding_box_x/2, y: model.bounding_box_z, z: model.bounding_box_z/2 }
+  boundingBoxMin.value = { x: -model.bounding_box_x / 2, y: 0, z: -model.bounding_box_z / 2 }
+  boundingBoxMax.value = { x: model.bounding_box_x / 2, y: model.bounding_box_z, z: model.bounding_box_z / 2 }
   activeView.value = 'dashboard'
   printerStatus.value = 'idle'
 }
@@ -696,12 +643,12 @@ const generateBoxVertices = (dx: number, dy: number, dz: number): Float32Array =
   const y = dy
   const z = dz / 2
   const v = new Float32Array([
-    -x, 0, z,  x, 0, z,  x, y, z,   -x, 0, z,  x, y, z, -x, y, z,
-    -x, 0, -z, -x, y, -z,  x, y, -z, -x, 0, -z,  x, y, -z,  x, 0, -z,
-    -x, y, -z, -x, y, z,   x, y, z,   -x, y, -z,  x, y, z,   x, y, -z,
-    -x, 0, -z,  x, 0, -z,  x, 0, z,   -x, 0, -z,  x, 0, z,  -x, 0, z,
-     x, 0, -z,  x, y, -z,  x, y, z,    x, 0, -z,  x, y, z,   x, 0, z,
-    -x, 0, -z, -x, 0, z,  -x, y, z,   -x, 0, -z, -x, y, z,  -x, y, -z
+    -x, 0, z, x, 0, z, x, y, z, -x, 0, z, x, y, z, -x, y, z,
+    -x, 0, -z, -x, y, -z, x, y, -z, -x, 0, -z, x, y, -z, x, 0, -z,
+    -x, y, -z, -x, y, z, x, y, z, -x, y, -z, x, y, z, x, y, -z,
+    -x, 0, -z, x, 0, -z, x, 0, z, -x, 0, -z, x, 0, z, -x, 0, z,
+    x, 0, -z, x, y, -z, x, y, z, x, 0, -z, x, y, z, x, 0, z,
+    -x, 0, -z, -x, 0, z, -x, y, z, -x, 0, -z, -x, y, z, -x, y, -z
   ])
   return v
 }
@@ -795,6 +742,7 @@ const formatMinutes = (totalMinutes: number): string => {
 .border-secondary {
   border-color: rgba(156, 39, 176, 0.15);
 }
+
 .border-secondary:hover {
   border-color: rgba(156, 39, 176, 0.5);
 }
@@ -802,6 +750,7 @@ const formatMinutes = (totalMinutes: number): string => {
 .border-info {
   border-color: rgba(33, 150, 243, 0.15);
 }
+
 .border-info:hover {
   border-color: rgba(33, 150, 243, 0.5);
 }
