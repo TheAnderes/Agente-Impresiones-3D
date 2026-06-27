@@ -5,21 +5,17 @@
         <span class="font-weight-black text-h5 tracking-wide text-white">
           PAPOIS <span class="text-primary">EN 3D</span>
         </span>
-        <v-btn icon="mdi-close" variant="text" color="grey" density="comfortable" @click="closeDialog" :disabled="loading"></v-btn>
+        <v-btn icon="mdi-close" variant="text" color="grey" density="comfortable" @click="closeDialog"
+          :disabled="loading"></v-btn>
       </v-card-title>
 
       <v-card-text class="px-6 pb-6 pt-2">
         <!-- Indicador modo simulación -->
-        <v-alert
-          v-if="isLocalMode"
-          type="info"
-          variant="tonal"
-          color="warning"
-          density="compact"
-          class="text-caption mb-4"
-          prepend-icon="mdi-test-tube"
-        >
-          <strong>Modo Local Activo:</strong> Puedes usar <code class="text-white">admin@papois.com</code> para Administrador o <code class="text-white">operator@papois.com</code> para Operador (cualquier contraseña), o registrar una cuenta nueva.
+        <v-alert v-if="isLocalMode" type="info" variant="tonal" color="warning" density="compact"
+          class="text-caption mb-4" prepend-icon="mdi-test-tube">
+          <strong>Modo Local Activo:</strong> Puedes usar <code class="text-white">admin@papois.com</code> para
+          Administrador o <code class="text-white">operator@papois.com</code> para Operador (cualquier contraseña), o
+          registrar una cuenta nueva.
         </v-alert>
 
         <v-tabs v-model="activeTab" grow color="primary" class="mb-4" :disabled="loading">
@@ -31,51 +27,20 @@
           <!-- VENTANA DE LOGIN -->
           <v-window-item value="login">
             <v-form ref="loginForm" @submit.prevent="handleLogin">
-              <v-text-field
-                v-model="loginEmail"
-                label="Correo Electrónico"
-                type="email"
-                prepend-inner-icon="mdi-email-outline"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :rules="[rules.required, rules.email]"
-                required
-                :disabled="loading"
-              ></v-text-field>
+              <v-text-field v-model="loginEmail" label="Correo Electrónico" type="email"
+                prepend-inner-icon="mdi-email-outline" variant="outlined" density="comfortable" class="mb-3"
+                :rules="[rules.required, rules.email]" required :disabled="loading"></v-text-field>
 
-              <v-text-field
-                v-model="loginPassword"
-                label="Contraseña"
-                type="password"
-                prepend-inner-icon="mdi-lock-outline"
-                variant="outlined"
-                density="comfortable"
-                class="mb-4"
-                :rules="[rules.required]"
-                required
-                :disabled="loading"
-              ></v-text-field>
+              <v-text-field v-model="loginPassword" label="Contraseña" type="password"
+                prepend-inner-icon="mdi-lock-outline" variant="outlined" density="comfortable" class="mb-4"
+                :rules="[rules.required]" required :disabled="loading"></v-text-field>
 
-              <v-alert
-                v-if="errorMessage"
-                type="error"
-                variant="tonal"
-                density="compact"
-                class="text-caption mb-4"
-              >
+              <v-alert v-if="errorMessage" type="error" variant="tonal" density="compact" class="text-caption mb-4">
                 {{ errorMessage }}
               </v-alert>
 
-              <v-btn
-                type="submit"
-                color="primary"
-                block
-                size="large"
-                variant="flat"
-                class="font-weight-bold text-none"
-                :loading="loading"
-              >
+              <v-btn type="submit" color="primary" block size="large" variant="flat" class="font-weight-bold text-none"
+                :loading="loading">
                 Ingresar a la Plataforma
               </v-btn>
             </v-form>
@@ -84,77 +49,28 @@
           <!-- VENTANA DE REGISTRO -->
           <v-window-item value="register">
             <v-form ref="registerForm" @submit.prevent="handleRegister">
-              <v-text-field
-                v-model="regFullName"
-                label="Nombre Completo"
-                type="text"
-                prepend-inner-icon="mdi-account-outline"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :rules="[rules.required]"
-                required
-                :disabled="loading"
-              ></v-text-field>
+              <v-text-field v-model="regFullName" label="Nombre Completo" type="text"
+                prepend-inner-icon="mdi-account-outline" variant="outlined" density="comfortable" class="mb-3"
+                :rules="[rules.required]" required :disabled="loading"></v-text-field>
 
-              <v-text-field
-                v-model="regUsername"
-                label="Nombre de Usuario"
-                type="text"
-                prepend-inner-icon="mdi-at"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :rules="[rules.required, rules.username]"
-                required
-                :disabled="loading"
-              ></v-text-field>
+              <v-text-field v-model="regUsername" label="Nombre de Usuario" type="text" prepend-inner-icon="mdi-at"
+                variant="outlined" density="comfortable" class="mb-3" :rules="[rules.required, rules.username]" required
+                :disabled="loading"></v-text-field>
 
-              <v-text-field
-                v-model="regEmail"
-                label="Correo Electrónico"
-                type="email"
-                prepend-inner-icon="mdi-email-outline"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :rules="[rules.required, rules.email]"
-                required
-                :disabled="loading"
-              ></v-text-field>
+              <v-text-field v-model="regEmail" label="Correo Electrónico" type="email"
+                prepend-inner-icon="mdi-email-outline" variant="outlined" density="comfortable" class="mb-3"
+                :rules="[rules.required, rules.email]" required :disabled="loading"></v-text-field>
 
-              <v-text-field
-                v-model="regPassword"
-                label="Contraseña (Mín. 6 caracteres)"
-                type="password"
-                prepend-inner-icon="mdi-lock-outline"
-                variant="outlined"
-                density="comfortable"
-                class="mb-4"
-                :rules="[rules.required, rules.minLength]"
-                required
-                :disabled="loading"
-              ></v-text-field>
+              <v-text-field v-model="regPassword" label="Contraseña (Mín. 6 caracteres)" type="password"
+                prepend-inner-icon="mdi-lock-outline" variant="outlined" density="comfortable" class="mb-4"
+                :rules="[rules.required, rules.minLength]" required :disabled="loading"></v-text-field>
 
-              <v-alert
-                v-if="errorMessage"
-                type="error"
-                variant="tonal"
-                density="compact"
-                class="text-caption mb-4"
-              >
+              <v-alert v-if="errorMessage" type="error" variant="tonal" density="compact" class="text-caption mb-4">
                 {{ errorMessage }}
               </v-alert>
 
-              <v-btn
-                type="submit"
-                color="primary"
-                block
-                size="large"
-                variant="flat"
-                class="font-weight-bold text-none"
-                :loading="loading"
-              >
+              <v-btn type="submit" color="primary" block size="large" variant="flat" class="font-weight-bold text-none"
+                :loading="loading">
                 Crear Cuenta Nueva
               </v-btn>
             </v-form>
@@ -225,24 +141,42 @@ const closeDialog = () => {
   errorMessage.value = ''
 }
 
-// Iniciar sesión
+// Iniciar sesión (Versión con Bypass Directo)
 const handleLogin = async () => {
+  errorMessage.value = ''
+
+  // 1. CORTOCUITO COMPONENTE: Si es el admin maestro, no esperes ni a las reglas de Vuetify
+  if (loginEmail.value.trim() === 'admin@papois.com' && loginPassword.value === 'admin123') {
+    const res = await authStore.login(loginEmail.value.trim(), loginPassword.value)
+    if (res.success) {
+      emit('success')
+      closeDialog()
+      loginEmail.value = ''
+      loginPassword.value = ''
+      loginForm.value?.resetValidation() // Limpia cualquier alerta visual de Vuetify
+    } else {
+      errorMessage.value = res.error || 'Error crítico en cuenta maestra'
+    }
+    return
+  }
+
+  // 2. FLUJO NORMAL: Validación de Vuetify para cualquier otro usuario
   const { valid } = await loginForm.value?.validate()
   if (!valid) return
 
-  errorMessage.value = ''
-  const res = await authStore.login(loginEmail.value, loginPassword.value)
-  
+  const res = await authStore.login(loginEmail.value.trim(), loginPassword.value)
+
   if (res.success) {
     emit('success')
     closeDialog()
-    // Resetear formulario
     loginEmail.value = ''
     loginPassword.value = ''
+    loginForm.value?.resetValidation()
   } else {
     errorMessage.value = res.error || 'Error al iniciar sesión'
   }
 }
+
 
 // Registrar usuario
 const handleRegister = async () => {

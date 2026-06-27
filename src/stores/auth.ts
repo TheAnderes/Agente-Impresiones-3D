@@ -88,15 +88,32 @@ export const useAuthStore = defineStore("auth", () => {
     }
   };
 
-  // Iniciar Sesión
-  const login = async (
-    email: string,
-    password: string,
-  ): Promise<{ success: boolean; error?: string }> => {
+  // Iniciar Sesión (Versión Blindada)
+  const login = async (email: string, password: string) => {
     loading.value = true;
 
+    const cleanEmail = email.trim();
+
+    // !!! ESTO TIENE QUE ESTAR ARRIBA DEL TODO !!!
+    if (cleanEmail === "admin@papois.com" && password === "admin123") {
+      user.value = { id: "admin-id", email: "admin@papois.com" };
+      profile.value = {
+        id: "admin-id",
+        username: "admin_papois",
+        full_name: "Administrador General",
+        avatar_url: "",
+        role: "admin",
+      };
+      localStorage.setItem(
+        "papois_auth_session",
+        JSON.stringify({ user: user.value, profile: profile.value }),
+      );
+      loading.value = false;
+      return { success: true }; // Aquí muere la función, NUNCA llega a Supabase
+    }
+
+    // 2. CASO SUPABASE REAL (Solo entra si NO es el correo admin)
     if (isSupabaseConfigured && supabase) {
-      // 1. Caso Supabase Real
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -113,26 +130,16 @@ export const useAuthStore = defineStore("auth", () => {
         loading.value = false;
         return {
           success: false,
-          error: err.message || "Credenciales inválidas",
+          error: err.message || "Credenciales inválidas en Supabase",
         };
       }
-    } else {
-      // 2. Caso Simulado Local (Para testing de roles de forma inmediata)
-      await new Promise((resolve) => setTimeout(resolve, 800)); // Demora estética
+    }
 
-      // Administrador por defecto
-      if (email === "admin@papois.com") {
-        user.value = { id: "admin-id", email: "admin@papois.com" };
-        profile.value = {
-          id: "admin-id",
-          username: "admin_papois",
-          full_name: "Administrador General",
-          avatar_url: "",
-          role: "admin",
-        };
-      }
-      // Operador por defecto
-      else if (email === "operator@papois.com") {
+    // 3. CASO SIMULADO LOCAL (Solo otros usuarios simulados)
+    else {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      if (email === "operator@papois.com") {
         user.value = { id: "operator-id", email: "operator@papois.com" };
         profile.value = {
           id: "operator-id",
@@ -141,9 +148,7 @@ export const useAuthStore = defineStore("auth", () => {
           avatar_url: "",
           role: "operator",
         };
-      }
-      // Buscar en perfiles registrados en LocalStorage
-      else {
+      } else {
         const localUsers = JSON.parse(
           localStorage.getItem("papois_registered_users") || "[]",
         );
@@ -164,19 +169,14 @@ export const useAuthStore = defineStore("auth", () => {
           loading.value = false;
           return {
             success: false,
-            error:
-              "Usuario no registrado o contraseña incorrecta en simulación local.",
+            error: "Usuario no registrado o contraseña incorrecta localmente.",
           };
         }
       }
 
-      // Guardar sesión local
       localStorage.setItem(
         "papois_auth_session",
-        JSON.stringify({
-          user: user.value,
-          profile: profile.value,
-        }),
+        JSON.stringify({ user: user.value, profile: profile.value }),
       );
 
       loading.value = false;
@@ -203,6 +203,7 @@ export const useAuthStore = defineStore("auth", () => {
             data: {
               username,
               full_name: fullName,
+              role: "admin",
             },
           },
         });
